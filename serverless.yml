@@ -1,0 +1,115 @@
+service: xiggit-passwordless-auth
+
+provider:
+  name: aws
+  stage: ${opt:stage, 'prod'}
+  runtime: nodejs12.x
+  logRetentionInDays: 30
+
+functions:
+  createAuthChallenge:
+    handler: app/trigger/createAuthChallenge.handler
+  defineAuthChallenge:
+    handler: app/trigger/defineAuthChallenge.handler
+  preSignUp:
+    handler: app/trigger/preSignUp.handler
+  verifyAuthChallenge:
+    handler: app/trigger/verifyAuthChallenge.handler
+
+resources:
+  Resources:
+    PreSignupTriggerInvokePermission:
+      Type: AWS::Lambda::Permission
+      DependsOn: PreSignUpLambdaFunction
+      Properties:
+        Action: lambda:InvokeFunction
+        Principal: cognito-idp.amazonaws.com
+        SourceArn:
+          Fn::GetAtt:
+            - UserPool
+            - Arn
+        FunctionName: ${self:service}-${self:provider.stage}-preSignUp
+    DefineAuthChallengeTriggerInvokePermission:
+      Type: AWS::Lambda::Permission
+      DependsOn: PreSignUpLambdaFunction
+      Properties:
+        Action: lambda:InvokeFunction
+        Principal: cognito-idp.amazonaws.com
+        SourceArn:
+          Fn::GetAtt:
+            - UserPool
+            - Arn
+        FunctionName: ${self:service}-${self:provider.stage}-defineAuthChallenge
+    CreateAuthChallengeTriggerInvokePermission:
+      Type: AWS::Lambda::Permission
+      DependsOn: PreSignUpLambdaFunction
+      Properties:
+        Action: lambda:InvokeFunction
+        Principal: cognito-idp.amazonaws.com
+        SourceArn:
+          Fn::GetAtt:
+            - UserPool
+            - Arn
+        FunctionName: ${self:service}-${self:provider.stage}-createAuthChallenge
+    VerifyAuthChallengeTriggerInvokePermission:
+      Type: AWS::Lambda::Permission
+      DependsOn: PreSignUpLambdaFunction
+      Properties:
+        Action: lambda:InvokeFunction
+        Principal: cognito-idp.amazonaws.com
+        SourceArn:
+          Fn::GetAtt:
+            - UserPool
+            - Arn
+        FunctionName: ${self:service}-${self:provider.stage}-verifyAuthChallenge
+    UserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        AdminCreateUserConfig:
+          UnusedAccountValidityDays: 7
+        AliasAttributes:
+          - 'phone_number'
+          - 'email'
+          - 'preferred_username'
+        UserPoolName: 'AppUserPool'
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 12
+            RequireLowercase: false
+            RequireNumbers: false
+            RequireSymbols: false
+            RequireUppercase: false
+        Schema:
+          - AttributeDataType: 'String'
+            Name: 'family_name'
+            Required: true
+            Mutable: true
+          - AttributeDataType: 'String'
+            Name: 'given_name'
+            Required: true
+            Mutable: true
+          - AttributeDataType: 'String'
+            Name: 'email'
+            Required: false
+            Mutable: true
+          - AttributeDataType: 'String'
+            Name: 'phone_number'
+            Required: true
+            Mutable: false
+        LambdaConfig:
+          PreSignUp:
+            Fn::GetAtt:
+              - PreSignUpLambdaFunction
+              - Arn
+          CreateAuthChallenge:
+            Fn::GetAtt:
+              - CreateAuthChallengeLambdaFunction
+              - Arn
+          DefineAuthChallenge:
+            Fn::GetAtt:
+              - DefineAuthChallengeLambdaFunction
+              - Arn
+          VerifyAuthChallengeResponse:
+            Fn::GetAtt:
+              - VerifyAuthChallengeLambdaFunction
+              - Arn
